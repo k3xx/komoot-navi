@@ -1,10 +1,6 @@
 /*
- * BLE receiver for Komoot navi app
- * The Komoot BLE communication is described on https://github.com/komoot/BLEConnect
- *
- * This sketch was inspired by code from <Andreas Spiess>
- * https://github.com/SensorsIot/Bluetooth-BLE-on-Arduino-IDE/blob/master/Polar_Receiver/Polar_Receiver.ino
- * which is based on Neil Kolban's example file: https://github.com/nkolban/ESP32_BLE_Arduino
+ * BLE turn indicator for Komoot
+ * Forked from koomot-navi by <Matthias Homann>
 
   Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"),
   to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
@@ -73,12 +69,14 @@ int scan_time = 0;
 uint8_t old_data[20];
 std::string value = "Start";
 
-const int battPin = 35; // A2=2 A6=34
+const int battPin = 27; // A2=2 A6=34
 unsigned int raw=0;
 float volt=0.0;
 // ESP32 ADV is a bit non-linear
-const float vScale1 = 225.0; // divider for higher voltage range
-const float vScale2 = 245.0; // divider for lower voltage range
+//const float vScale1 = 225.0; // divider for higher voltage range
+//const float vScale2 = 245.0; // divider for lower voltage range
+const float vScale1 = 1/(1.0/1024 * 690/220);
+const float vScale2 = vScale1;
 
 std::string street = "Start";
 std::string street_old = "";
@@ -262,12 +260,13 @@ void setup() {
   rtc_clk_cpu_freq_to_config(RTC_CPU_FREQ_80M, &freq_conf);
   rtc_clk_cpu_freq_set_config(&freq_conf);
 
-  touchAttachInterrupt(T3, callback, Threshold); // Touch 3 = GPIO 15
+//  touchAttachInterrupt(T3, callback, Threshold); // Touch 3 = GPIO 15 // WORKAROUND
   esp_sleep_enable_touchpad_wakeup();
 
   pinMode(battPin, INPUT);
   raw  = analogRead(battPin);
   volt = raw / vScale1;
+  //volt = 5.0; // WORKAROUND
   Serial.print ("Battery = ");
   Serial.println (volt);
 
@@ -286,23 +285,35 @@ void setup() {
   }
 
   // Welcome screen
-  show_message("©2018 Matthias Homann"); // developer
+  show_message("Turn Indicator by S. Neumann, 2020"); // developer: ©2018 Matthias Homann
   delay(500);
   String v_str = "Akku: " + String(volt,1) + "V";
   show_message(v_str.c_str()); // battery status
   delay(500);
 
-  BLEDevice::init("");
+  //BLEDevice::init("");
+  BLEDevice::init("Komoot Turn Indicator");
 
   // Retrieve a Scanner and set the callback we want to use to be informed when we
   // have detected a new device.  Specify that we want active scanning and start the
   // scan to run for 30 seconds.
   BLEScan* pBLEScan = BLEDevice::getScan();
   pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks());
+  //pBLEScan->setInterval(1349);
+  //pBLEScan->setWindow(449);
   pBLEScan->setActiveScan(true);
+
+//  BLEScanResults foundDevices = pBLEScan->start(5);
+//  Serial.print("Devices found: ");
+//  Serial.println(foundDevices.getCount());
+//  Serial.println("Scan done! \n");
 
   // show BLS status "try to connect"
   show_message("BLE try to connect",33);
+//  BLEAddress deviceAddress = BLEDevice::getAddress();
+//  String deviceName = deviceAddress.toString().c_str();
+  Serial.print("BLE address: ");
+  Serial.println( BLEDevice::getAddress().toString().c_str() );
 
   uint32_t scan_time = millis();
   pBLEScan->start(30); // try 30s to find a device
@@ -383,6 +394,7 @@ void loop() {
     // get battery voltage
     raw  = analogRead(battPin);
     volt = raw / vScale2;
+    //volt = 5.0; // WORKAROUND
     if (volt < 3.1) { //sleep below 3.1 V
       show_message("Switching off now...",36,"LOW","battery",volt);
       delay(999);
