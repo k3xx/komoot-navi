@@ -40,3 +40,4 @@ icon.src
 *.exe
 *.out
 *.app
+/navi-case/Archive/
